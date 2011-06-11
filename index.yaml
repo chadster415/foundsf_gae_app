@@ -1,0 +1,9 @@
+indexes:
+    
+  - kind: ImageModel
+    properties:
+    - name: latcoord
+    - name: longcoord
+    - name: neighborhood
+    - name: updatetime
+      direction: asc

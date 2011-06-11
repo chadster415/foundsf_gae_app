@@ -1,0 +1,20 @@
+application: foundsf-api
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /api/user/.*
+  script: user.py
+- url: /api/users
+  script: users.py
+- url: /api/image
+  script: image.py
+- url: /api/job
+  script: imageprocessjob.py
+- url: /api/joblinks
+  script: imageprocessjoblinks.py 
+  
+builtins:
+- datastore_admin: on
+  
