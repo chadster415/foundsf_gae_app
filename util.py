@@ -26,3 +26,9 @@ def getuser(username):
 def getimage(imagename):
 	# get image from datastore here
 	return ImageModel.gql("WHERE imageurl=:1",imagename).get()	
+	
+def convertimageurl(imageurl):
+	if (imageurl.find("ttp://") > 0): #get rid of domains and dirs, only keep image name
+		imageurl = imageurl.split("/")[-1]
+		imageurl = imageurl.replace("_"," ") # for some reason, the url is stored on wikimedia in 2 diff formats, in one place with spaces, in another with _'s. The db should only know about the one with spaces
+	return imageurl		

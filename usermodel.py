@@ -3,7 +3,8 @@ from google.appengine.ext import db
 class UserModel(db.Model): 
 	username = db.StringProperty(required=True)
 	neighborhood = db.StringProperty()
-	count = db.IntegerProperty(default=0) 
+	count = db.IntegerProperty(default=0)
+	ignored_images = db.StringListProperty() 
 	updatetime = db.DateTimeProperty(auto_now_add=True) 
 
 def __str__(self): 

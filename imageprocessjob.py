@@ -98,7 +98,7 @@ class JobEndpoint(webapp.RequestHandler):
 				dbimage.pageid=int(wikiimage[0])
 				dbimage.neighborhood=wikiimage[1]
 				imagetosave = dbimage
-				newimagecount = newimagecount + 1
+				updatedimagecount = updatedimagecount + 1
 			else:	
 				#logging.info("DbImage NOT found, setting %s, %i, %s" % (imagename, wikiimage[0], wikiimage[1]))
 				imagetosave = ImageModel(
@@ -106,7 +106,7 @@ class JobEndpoint(webapp.RequestHandler):
 					imageurl=imagename,
 					neighborhood=wikiimage[1],
 					usernameupdated='WikiUser')
-				updatedimagecount = updatedimagecount + 1 					
+				savedimagecount = savedimagecount + 1 					
 									
 			imagestosave.append(imagetosave)	
 					
