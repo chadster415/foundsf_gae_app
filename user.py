@@ -14,29 +14,37 @@ class UserEndpoint(webapp.RequestHandler):
 		username = self.getusername()
 		success = None
 		if (op == 'add' and username is not None):
-			success = self.adduser(username)
-			a=('response',[('username',username),('score',0),('success',success)])
-			self.response.out.write(util.toxml(a))
-					
+			try:
+				success = self.adduser(username)
+				a=('response',[('username',username),('score',0),('success',success)])
+				self.response.out.write(util.toxml(a))
+			except Exception, err:
+				logging.error(err)
+				self.response.out.write(util.toxml(('response',[('success',False)])))
+						
 		elif (op == 'update' and hood is not None):
-			success = self.updateuser(username,hood)
-			a=('response',[('username',username),('success',success)])
-			self.response.out.write(util.toxml(a))
-					
+			try:
+				success = self.updateuser(username,hood)
+				a=('response',[('username',username),('success',success)])
+				self.response.out.write(util.toxml(a))
+			except Exception, err:
+				logging.error(err)
+				self.response.out.write(util.toxml(('response',[('success',False)])))
+				
 		elif (username is not None):
-			user = util.getuser(username)
-			#if (user is not None):
-			success, score = self.getusercount(username, oldusernames)
-			a=('response',[('username',username),('neighborhood',user.neighborhood),('score',score),('updated',user.updatetime),('success',success)])
-			#else:	
-			#	a=('response',[('username',username),('success',False)])
-			self.response.out.write(util.toxml(a))
-
-#		for name in os.environ.keys():
-#			self.response.out.write("%s = %s<br />\n" % (name, os.environ[name]))
+			try:
+				user = util.getuser(username)
+				success, score = self.getusercount(username, oldusernames)
+				a=('response',[('username',username),('neighborhood',user.neighborhood),('score',score),('updated',user.updatetime),('success',success)])
+				self.response.out.write(util.toxml(a))
+			except Exception, err:
+				logging.error(err)
+				self.response.out.write(util.toxml(('response',[('success',False)])))	
+				
+		#else:
+			#self.response.out.write(util.toxml(('response',[('success',False)])))
 
 	def adduser(self, username):
-		# add user to datastore here
 		user = util.getuser(username)
 		if (user is not None):
 			return False

@@ -1,10 +1,11 @@
 from google.appengine.ext import webapp, db 
 from google.appengine.ext.webapp.util import run_wsgi_app 
-import util, logging, string, urllib2
-from urllib import quote
+import util, logging, urllib2, config
+from urllib import quote, unquote
 from imagemodel import ImageModel
 from usermodel import UserModel
 from BeautifulSoup import BeautifulSoup
+
 
 class ImageEndpoint(webapp.RequestHandler): 
 	
@@ -20,81 +21,51 @@ class ImageEndpoint(webapp.RequestHandler):
 		success = None
 		
 		if (op == 'get'):
-			(success, pageid, imageurl, text, hood) = self.getimage(hood, username)
-			a=('response',[('success',success),('pageid',pageid),('imageurl',imageurl),('imagetext',text),('neighborhood',hood)])
-			self.response.out.write(util.toxml(a))
+			try:
+				(success, pageid, imageurl, text, hood) = self.getimage(hood, username)
+				a=('response',[('success',success),('pageid',pageid),('imageurl',imageurl),('imagetext',text),('neighborhood',hood)])
+				self.response.out.write(util.toxml(a))
+			except Exception, err:
+				logging.error(err)
+				self.response.out.write(util.toxml(('response',[('success',False)])))	
 						
 		elif (op == 'tag' and imageurl is not None and pageid is not None and latcoord is not None and longcoord is not None):
-			success = self.tagimage(imageurl, pageid, latcoord, longcoord, hood, username)
-			a=('response',[('success',success)])
-			self.response.out.write(util.toxml(a))
-			
+			try:
+				success = self.tagimage(imageurl, pageid, latcoord, longcoord, hood, username)
+				a=('response',[('success',success)])
+				self.response.out.write(util.toxml(a))
+			except Exception, err:
+				logging.error(err)
+				self.response.out.write(util.toxml(('response',[('success',False)])))	
+						
 		elif (op == 'ignore' and imageurl is not None and username is not None):
-			success = self.ignoreimage(imageurl, username)
-			a=('response',[('success',success)])
-			self.response.out.write(util.toxml(a))	
-	
+			try:
+				success = self.ignoreimage(imageurl, username)
+				a=('response',[('success',success)])
+				self.response.out.write(util.toxml(a))	
+			except Exception, err:
+				logging.error(err)
+				self.response.out.write(util.toxml(('response',[('success',False)])))
+				
+		#else:
+			#self.response.out.write(util.toxml(('response',[('success',False)])))
+			
 	def getimage(self, hood, username):
-		user = util.getuser(username)
-		image = None
 		
-		# make a call to the imagemodel KV store, passing the hood desired, and getting back the imageid, pageid and image url of the first one that has no geo coords, and is not in the user's ignored list
-		dbhood = string.replace(hood, " ", "_")
-		query = db.GqlQuery("SELECT * FROM ImageModel where latcoord = null and longcoord = null and neighborhood = :1 order by updatetime asc", dbhood)
-		images = query.fetch(len(user.ignored_images) + 1) #get one more than the amount of items in the ignored images list, so we are guaranteed to have at least one left once the list is filtered
-		for singleimage in images: # now return the first image that is not in the user's ignored images list
-			if singleimage.imageurl not in user.ignored_images: 
-				image = singleimage
-				break
-		
-		if (image != None):
-		
-			logging.info("Got image %s", image.imageurl)
-		
-			#TODO: what if image is null??
-		
-			#now fire off this example of a query to get the absolute wiki url
-			#http://beta.shapingsf-wiki.org/api.php?action=query&titles=File:Stepstotwinpeaks.gif&prop=imageinfo&iilimit=50&iiprop=url
-			wikidomain = "http://beta.shapingsf-wiki.org/"
-			apiurl = wikidomain + "api.php?action=query&titles=File:" + quote(image.imageurl) + "&prop=imageinfo&iilimit=50&iiprop=url&format=xml"
-			logging.info("calling %s for imageurl", apiurl)
-			imagepage = urllib2.urlopen(apiurl)
-			imagesoup = BeautifulSoup(imagepage)
-			ii = imagesoup.find('ii')		
-			imageurl = ii['url']
-		
-			#now get the comment
-			caption = ""
-			apiurl = wikidomain + "api.php?action=query&pageids=" + str(image.pageid) + "&prop=revisions&rvprop=content&format=xml"
-			logging.info("calling %s for comment", apiurl)
-			captionpage = urllib2.urlopen(apiurl)
-			captionsoup = BeautifulSoup(captionpage)
-			rev = captionsoup.find('rev').string
-			#logging.info("rev is: %s", rev)
-		
-			#loop through newlines of text until we find the image name, then take the next line, which is the comment
-			caption = "Not found"
-			linearray = rev.split("""
-
-	""")
-			#logging.info("Length of array is %i", len(linearray))
-			linecount = 0
-			found = False
-			while (found == False and linecount < len(linearray) - 1):
-			#    print("Processing %s" % (linearray[linecount]))
-				#logging.info("Examining ||%s|| against ||%s||", linearray[linecount], image.imageurl)
-				if (linearray[linecount].find(image.imageurl) > -1 and linearray[linecount + 1].find("[[") == -1):
-					logging.info("Found!! Setting caption to:")
-					caption = linearray[linecount + 1]
-					logging.info("Caption: %s", caption)
-					found = True
-				else:
-					linecount = linecount + 1
-
-			caption = caption.replace("'","")	
-		
-			logging.info("%s, %s, %s, %s", str(image.pageid), imageurl, caption, hood)
-			return (True, image.pageid, imageurl, caption, hood)
+		modelimage = self.getfirstuntaggedimage(username, hood)		
+		if (modelimage != None):		
+			logging.info("Got image %s", modelimage.imageurl)
+			imageinfo = self.getwikiimageurl(modelimage)
+			imageurl = ""
+			
+			if (imageinfo != None):	
+				imageurl = imageinfo['url']		
+				comment = self.getwikiimagecomment(modelimage, imageinfo)			
+				logging.info("%s, %s, %s, %s", str(modelimage.pageid), imageurl, comment, hood)
+				return (True, modelimage.pageid, imageurl, comment, hood)
+			else:
+				return (True, modelimage.pageid, modelimage.imageurl, "", hood)			
+			
 		else: # image == None
 			return (False, "000", "", "", hood)
 			
@@ -129,9 +100,8 @@ class ImageEndpoint(webapp.RequestHandler):
 			return False
 			
 	def ignoreimage(self, imageurl, username):
-		logging.info("imageurl is going in as: %s", imageurl)
+
 		imageurl = util.convertimageurl(imageurl)	
-		logging.info("imageurl is coming out as: %s", imageurl)
 
 		try:
 			user = util.getuser(username)
@@ -145,7 +115,71 @@ class ImageEndpoint(webapp.RequestHandler):
 			return True
 		except Exception, err:
 			logging.error(str(err))
-			return False		
+			return False
+			
+	def getfirstuntaggedimage(self, username, hood):
+		user = util.getuser(username)
+		modelimage = None
+		
+		# make a call to the imagemodel KV store, passing the hood desired, and getting back the imageid, pageid and image url of the first one that has no geo coords, and is not in the user's ignored list		
+		dbhood = util.underscoredistricturl(hood)
+		query = db.GqlQuery("SELECT * FROM ImageModel where latcoord = null and longcoord = null and neighborhood = :1 order by updatetime asc", dbhood)
+		images = query.fetch(len(user.ignored_images) + 1) #get one more than the amount of items in the ignored images list, so we are guaranteed to have at least one left once the list is filtered
+		for singleimage in images: # now return the first image that is not in the user's ignored images list
+			if singleimage.imageurl not in user.ignored_images: 
+				modelimage = singleimage
+				break
+			else:
+				logging.info("Ignoring %s", singleimage.imageurl)
+		
+		return modelimage
+		
+	def getwikiimageurl(self, image):
+		#now fire off a query to get the absolute wiki image url
+		apiurl = config.domain + "api.php?action=query&titles=File:" + quote(image.imageurl) + "&prop=imageinfo&iilimit=50&iiprop=url&format=xml"
+		logging.info("calling %s for imageurl", apiurl)
+		imagepage = urllib2.urlopen(apiurl)
+		imagesoup = BeautifulSoup(imagepage)
+		ii = imagesoup.find('ii')
+		return ii
+		
+	def getwikiimagecomment(self, modelimage, imageinfo):	
+		apiurl = config.domain + "api.php?action=query&pageids=" + str(modelimage.pageid) + "&prop=revisions&rvprop=content&format=xml"
+		logging.info("calling %s for comment", apiurl)
+		captionpage = urllib2.urlopen(apiurl)
+		captionsoup = BeautifulSoup(captionpage)
+		rev = captionsoup.find('rev').string
+
+		#loop through newlines of text until we find the image name, then take the next line, which is the comment
+		caption = "Not found"
+		linearray = rev.split("""
+
+""")
+		#logging.info("Length of array is %i", len(linearray))
+		linecount = 0
+		found = False
+		while (found == False and linecount < len(linearray) - 1):
+			line = linearray[linecount].lower()
+			nextline = linearray[linecount + 1]
+			imurl = modelimage.imageurl.lower()
+								
+			logging.info("Processing %s" % line)
+			logging.info("Examining ||%s|| against ||%s||", line, imurl)
+			
+			#sometimes the imageurl is quoted in the api response and sometimes not, so check both, and make sure the next line is not an internal api thing
+			if ((line.find(quote(imurl)) > -1 or line.find(imurl) > -1) and nextline.find("[[") == -1):
+				logging.info("Image url found!! Setting caption to:")
+				caption = nextline
+				logging.info("Caption: %s", caption)
+				found = True
+			else:
+				linecount = linecount + 1
+
+		caption = caption.replace("'''","")
+		caption = caption.replace("''","")
+		caption = util.decode_htmlentities(caption)
+		return caption	
+						
 			
 chatapp = webapp.WSGIApplication([('/api/image', ImageEndpoint)])
 

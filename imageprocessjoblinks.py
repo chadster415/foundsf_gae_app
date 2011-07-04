@@ -2,7 +2,7 @@ from google.appengine.ext import webapp, db
 from google.appengine.ext.webapp.util import run_wsgi_app 
 import os, logging, util, showquery
 from imagemodel import ImageModel
-import urllib2, re, string, time
+import urllib2, re, string, time, config
 from BeautifulSoup import BeautifulSoup
 
 # the ImageModel table is a one-stop datasource for all images, so the iphone app can do a fast query by neighborhood for the next un-geotagged image
@@ -22,8 +22,7 @@ class JobLinksEndpoint(webapp.RequestHandler):
 		#self.saveimagedictionary()
 		
 	def runjobs(self):
-		wikidomain = "http://beta.shapingsf-wiki.org/"
-		page = urllib2.urlopen(wikidomain + "api.php?action=query&list=categorymembers&cmtitle=Category:Neighborhood/Geography&cmtype=subcat&cmlimit=100&format=xml")
+		page = urllib2.urlopen(config.domain + "api.php?action=query&list=categorymembers&cmtitle=Category:Neighborhood/Geography&cmtype=subcat&cmlimit=100&format=xml")
 		
 		soup = BeautifulSoup(page)
 		results = []

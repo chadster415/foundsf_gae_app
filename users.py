@@ -28,14 +28,6 @@ class UsersEndpoint(webapp.RequestHandler):
 
 		c=('response',
 			[('users',a,{'page':count,'found':rank - 1})])
-				
-		# c=('response',
-		# 			[('users',[
-		# 				('user',[('username','chada'),('count',112),(neighborhood,'Castro')],{'rank':1}),
-		# 				('user',[('username','chada'),('count',142),(neighborhood,'Mission')],{'rank':2}),
-		# 				('user',[('username','chada'),('count',152),(neighborhood,'SOMA')],{'rank':3}),
-		# 				],
-		# 			{'page':count,'found':found})])
 					
 		self.response.out.write(util.toxml(c))
 							
